@@ -18,6 +18,8 @@ void cuda_check() {
 }
 
 static int cu_mpzfft_initialized;
+static int cu_mem_alloced;
+static uint64_t* d_arr;
 
 extern "C" {
 cu_zz_moduli_t* cu_zz_moduli;
@@ -28,6 +30,11 @@ cu_fft62_mod_t cu_mod;
 
 void cu_fft62_mod_init(cu_fft62_mod_t* mod, uint64_t p) {
     if (mod == nullptr) { exit(1); }
+    
+    if (!cu_mem_alloced) {
+        cudaMalloc(&d_arr, (1 << GPU_MAX_THRESHOLD) * sizeof(uint64_t));
+        cu_mem_alloced = 1;
+    }
 
     mod->p = p;
     mod->modulus = Modulus<uint64_t>(p);
@@ -85,7 +92,8 @@ void cu_fft62_mod_init(cu_fft62_mod_t* mod, uint64_t p) {
 void cu_fft62_mod_clear(cu_fft62_mod_t* mod) {
     cudaFree(mod->cfg[0].root_table);
     cudaFree(mod->inverse_cfg[0].root_table);
-
+    
+    if (cu_mem_alloced) { cudaFree(d_arr); cu_mem_alloced = 0; }
     cuda_check();
 
     return;
@@ -94,8 +102,8 @@ void cu_fft62_mod_clear(cu_fft62_mod_t* mod) {
 
 void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft62_mod_t* mod) {
     assert(lgN <= GPU_MAX_THRESHOLD && lgN >= GPU_MIN_THRESHOLD);
+    assert(cu_mem_alloced);
 
-    uint64_t* d_arr;
     int n = 1 << lgN;
 
     // Input can be in range [0, 2p), so need to do this so doesn't 
@@ -104,7 +112,6 @@ void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft6
 
     // xp has junk after first size elements, so need to set everything
     // to zero first
-    cudaMalloc(&d_arr, n * sizeof(uint64_t));
     cudaMemset(d_arr, 0, n * sizeof(uint64_t));
     cudaMemcpy(d_arr, xp, size * sizeof(uint64_t), cudaMemcpyHostToDevice);
 
@@ -116,22 +123,19 @@ void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft6
     );
 
     cudaMemcpy(yp, d_arr, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
-    cudaFree(d_arr);
 
     return;
 }
 
 void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod) {
     assert(lgN <= GPU_MAX_THRESHOLD && lgN >= GPU_MIN_THRESHOLD);
+    assert(cu_mem_alloced);
 
-    uint64_t* d_arr;
     int n = 1 << lgN;
-
     // Input can be in range [0, 2p), so need to do this so doesn't 
     // overflow Barrett reduction
     for (int i = 0; i < n; ++i) { xp[i] = xp[i] % mod->p; }
 
-    cudaMalloc(&d_arr, n * sizeof(uint64_t));
     cudaMemcpy(d_arr, xp, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
 
     int modIdx = lgN - GPU_MIN_THRESHOLD;
@@ -142,7 +146,6 @@ void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod
     );
 
     cudaMemcpy(yp, d_arr, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
-    cudaFree(d_arr);
 
     cuda_check();
 
@@ -166,9 +169,15 @@ void cu_zz_moduli_init(cu_zz_moduli_t* moduli, int numPrimes) {
         moduli->p[i] = p;
         cu_fft62_mod_init(moduli->fft62_mod[i], p);
     }
+    
+    if (!cu_mem_alloced) {
+        cudaMalloc(&d_arr, (1 << GPU_MAX_THRESHOLD) * sizeof(uint64_t));
+        cu_mem_alloced = 1;
+    }
+
     cuda_check();
     cu_mpzfft_initialized = 1;
-
+    
     return;
 }
 
@@ -176,7 +185,7 @@ void cu_zz_moduli_clear(cu_zz_moduli_t* moduli) {
     for (int i = 0; i < moduli->num_primes; ++i) {
         cu_fft62_mod_clear(moduli->fft62_mod[i]);
     }
-
+    
     free(moduli);
 
     return;

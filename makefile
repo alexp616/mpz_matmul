@@ -1,8 +1,8 @@
 ##### using -fPIC slows things down by a few percent, not a big deal
-CC = gcc
+CC = clang
 NVCC = nvcc
 CFLAGS = -O3 -fPIC -fomit-frame-pointer -funroll-loops -m64 -pedantic -std=gnu11
-NVCCFLAGS = -ccbin gcc -arch=sm_89
+NVCCFLAGS = -ccbin $(CC) -arch=sm_89
 # debug version
 # CFLAGS = -O0 -g -std=gnu11
 # NVCCFLAGS = -ccbin gcc -arch=sm_89 -Xcompiler "-g"
