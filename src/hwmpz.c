@@ -89,6 +89,7 @@ mpz_t *mpz_rmatrix_mult_fft (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
     
     mpzfft_params_init (&params, mpz_rmatrix_product_max_bits (A, r, B, d), d, HW_ZZ_PRIMES, &zz_moduli);
 
+    alloc_if_gpu(params.lgN);
     // transform input matrices
     AT = hw_malloc (r*d*sizeof(mpzfft_t));
     for ( int i = 0 ; i < r*d; i++) { mpzfft_init(AT[i], &params);  mpzfft_fft (AT[i], A[i], mpzfft_threads); }
@@ -104,6 +105,7 @@ mpz_t *mpz_rmatrix_mult_fft (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
 
     hw_free (AT, r*d*sizeof(mpzfft_t));
     hw_free (BT, d*d*sizeof(mpzfft_t));
+    free_if_gpu(params.lgN);
 
     mpzfft_params_clear (&params);
     return C;

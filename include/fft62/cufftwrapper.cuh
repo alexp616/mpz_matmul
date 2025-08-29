@@ -24,6 +24,12 @@ typedef struct {
     cu_fft62_mod_t* fft62_mod[ZZ_MAX_PRIMES];
 } cu_zz_moduli_t;
 
+// Allocates gpu memory for ffts
+void gpu_alloc_mem(size_t n);
+
+// Frees gpu memory for ffts
+void gpu_free_mem();
+
 // C-friendly array access
 cu_fft62_mod_t* get_mod_num(cu_zz_moduli_t* mod, int i) {
     return mod->fft62_mod[i];

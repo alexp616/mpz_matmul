@@ -115,6 +115,12 @@ void zz_mpnfft_poly_add(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op1,
 void zz_mpnfft_poly_sub(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op1,
 			zz_mpnfft_poly_t op2, int threads);
 
+// Allocates memory for gpu fft if lgN is in gpu threshold range
+void alloc_if_gpu(unsigned lgN);
+
+// Frees memory for gpu fft if lgN is in gpu threshold range
+void free_if_gpu(unsigned lgN);
+
 // computes FFT of op (zero or "points" points), writes result to rop
 // rop may alias op
 void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,

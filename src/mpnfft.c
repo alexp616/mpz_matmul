@@ -377,6 +377,20 @@ typedef struct cu_fft62_mod_t cu_fft62_mod_t;
 cu_fft62_mod_t* get_mod_num(cu_zz_moduli_t* mod, int i);
 extern void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft62_mod_t* mod);
 extern void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod);
+extern void gpu_alloc_mem(size_t n);
+extern void gpu_free_mem();
+
+void alloc_if_gpu(unsigned lgN) {
+  if (lgN >= GPU_MIN_THRESHOLD && lgN <= GPU_MAX_THRESHOLD) {
+    gpu_alloc_mem(1 << lgN);
+  }
+}
+
+void free_if_gpu(unsigned lgN) {
+  if (lgN >= GPU_MIN_THRESHOLD && lgN <= GPU_MAX_THRESHOLD) {
+    gpu_free_mem();
+  }
+}
 
 void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 			int threads)
@@ -398,6 +412,8 @@ void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 
   unsigned teams = zz_gcd(threads, num_primes);
   unsigned threads2 = threads / teams;
+
+
   // printf("fft points: %lu, size: %lu, lgN: %d\n", points, op->size, lgN);
 // #pragma omp parallel for num_threads(teams) schedule(sta  tic)
   for (unsigned i = 0; i < num_primes; i++)
