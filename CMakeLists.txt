@@ -10,7 +10,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fPIC -fomit-frame-pointer -funroll-loops -m64 -pedantic -std=gnu11")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fPIC -fomit-frame-pointer -funroll-loops -m64 -pedantic -std=gnu11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fPIC -fomit-frame-pointer -funroll-loops -m64 -pedantic -std=gnu11")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_89 -ccbin=${CMAKE_C_COMPILER}")
 
 
@@ -77,6 +78,10 @@ target_link_libraries(test_rforest rforest)
 add_executable(test_fft tests/test_fft.c)
 set_target_properties(test_fft PROPERTIES LINKER_LANGUAGE CUDA)
 target_link_libraries(test_fft rforest)
+
+add_executable(test_matmul tests/test_matmul.c)
+set_target_properties(test_matmul PROPERTIES LINKER_LANGUAGE CUDA)
+target_link_libraries(test_matmul rforest)
 
 # Install rules
 install(TARGETS rforest ARCHIVE DESTINATION lib)

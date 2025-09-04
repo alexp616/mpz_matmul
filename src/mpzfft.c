@@ -22,6 +22,21 @@ void mpzfft_fft(mpzfft_t rop, mpz_t op, int threads)
     }
 }
 
+void mpzfft_fft2(mpzfft_t rop, mpz_t op, int threads)
+{
+  int sign = mpz_sgn(op);
+
+  if (sign == 0)
+    {
+      rop->size = 0;
+    }
+  else
+    {
+      zz_mpnfft_mpn_to_poly2(rop, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
+      zz_mpnfft_poly_fft(rop, rop, threads);
+    }
+}
+
 
 void mpzfft_ifft(mpz_t rop, mpzfft_t op, int threads)
 {

@@ -165,7 +165,7 @@ void fft62_fft(uint64_t* yp, size_t yn, uint64_t* xp, size_t xn, unsigned lgN,
 /*
   Implements truncated FFT interface, with these restrictions:
   * Always Z = 1 and threads = 1.
-  * Must have lgN <= FFT62_ARRAY_THRESHOLD.
+  * Must have lgN <=  FFT62_ARRAY_THRESHOLD.
   * Scratch space must also be provided in {tp,N}. The buffer {tp,N} may overlap
     with {xp,xn} (and/or {yp,yn}), but only if tp == xp (and/or tp == yp).
 */

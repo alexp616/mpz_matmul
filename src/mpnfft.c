@@ -13,6 +13,7 @@
 #include "fft62/mod62.h"
 #include "zzmem.h"
 #include "fft62/cufft62_thresholds.h"
+#include <stdio.h>
 
 size_t nextpow2(size_t n) {
   if (n == 0) return 1;
@@ -85,11 +86,53 @@ void zz_mpnfft_params_init(zz_mpnfft_params_t* params, size_t bits,
 	  params->r = r;
 	  params->lgN = lgN; 
 	  params->N = (size_t) 1 << lgN;
-    if (lgN >= GPU_MIN_THRESHOLD && lgN <= GPU_MAX_THRESHOLD) {
-       params->points = params->N;
-    } else {
-      params->points = fft62_next_size(points, lgN);
+    params->points = fft62_next_size(points, lgN);
+    
+	  return;
+	}
+      // otherwise decrease r and try again
+      r = rr;
     }
+}
+
+void zz_mpnfft_params_init2(zz_mpnfft_params_t* params, size_t bits,
+			   size_t terms, unsigned num_primes,
+			   zz_moduli_t* moduli)
+{
+  params->moduli = moduli;
+  params->num_primes = num_primes;
+  params->terms = terms;
+
+  double bound = 0.4999;
+  for (unsigned i = 0; i < num_primes; i++)
+    bound *= (double) moduli->p[i];
+  double bound2 = bound / terms;
+
+  // initial (over)estimate of r
+  unsigned r = 62 * num_primes / 2;
+
+  // this loop generates a decreasing sequence of overestimates of r
+  // until we hit one that works
+  while (1)
+    {
+      size_t points = (bits - 1) / r + 2;    // ceil(bits / r + 1)
+
+      // find largest r' such that 2^(2r') < bound2 / ceil(points / 2)
+      double thing = bound2 / ((points + 1) / 2);
+      unsigned rr;
+      frexp(thing, (int*) &rr);
+      rr = (rr - 1) / 2;
+
+      // if r' matches r, we're done
+      if (rr == r)
+	{
+	  // done
+	  unsigned lgN = fft62_log2(points);
+    
+	  params->r = r;
+	  params->lgN = lgN; 
+	  params->N = (size_t) 1 << lgN;
+    params->points = params->N;
     
 	  return;
 	}
@@ -160,11 +203,59 @@ void zz_mpnfft_mpn_to_poly(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
     size = points;
   size = fft62_next_size(size, P->params->lgN);
   P->size = size;
+  // printf("right size: %lu\n", size);
   
   zz_split_reduce(P->data, size, sign, lgS - (scale ? lgN : 0),
 		  moduli, num_primes, up, un, r, threads);
+
+  size_t n = 1 << lgN;
+  for (size_t pn = 0; pn < num_primes; ++pn) {
+    // for (size_t i = size; i < n; ++i) {
+    //   P->data[pn][i] = 0;
+    // }
+    for (size_t i = 0; i < n; ++i) {
+      printf("%lx, ", P->data[pn][i]);
+    } printf("\n\n");
+  }
 }
 
+void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
+			   int sign, int lgS, int scale, int threads)
+{
+  if (sign == 0 || un == 0)
+    {
+      P->size = 0;
+      return;
+    }
+  zz_mpnfft_poly_alloc(P);
+  
+  unsigned lgN = P->params->lgN;
+  zz_moduli_t* moduli = P->params->moduli;
+  unsigned num_primes = P->params->num_primes;
+  size_t points = P->params->points;
+  unsigned r = P->params->r;
+
+  // estimate number of coefficients needed
+  size_t size = (64 * un + r - 1) / r;
+  if (size > points)
+    size = points;
+  size = fft62_next_size(size, P->params->lgN);
+  P->size = size;
+  
+  zz_split_reduce(P->data, size, sign, lgS - (scale ? lgN : 0),
+		  moduli, num_primes, up, un, r, threads);
+  
+  size_t n = 1 << lgN;
+  for (size_t pn = 0; pn < num_primes; ++pn) {
+    for (size_t i = size; i < n; ++i) {
+      P->data[pn][i] = 0;
+    }
+    for (size_t i = 0; i < n; ++i) {
+      printf("%lx, ", P->data[pn][i]);
+    } printf("\n\n");
+  }
+
+}
 
 void zz_mpnfft_poly_to_mpn(mp_limb_t* rp, size_t rn, zz_mpnfft_poly_t P,
 			   int threads)
@@ -413,18 +504,11 @@ void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
   unsigned teams = zz_gcd(threads, num_primes);
   unsigned threads2 = threads / teams;
 
-
-  // printf("fft points: %lu, size: %lu, lgN: %d\n", points, op->size, lgN);
 // #pragma omp parallel for num_threads(teams) schedule(sta  tic)
   for (unsigned i = 0; i < num_primes; i++)
     {
-      if (lgN >= GPU_MIN_THRESHOLD && lgN <= GPU_MAX_THRESHOLD) {
-        // printf("npru: %lu, p: %lu ", moduli->fft62_mod[i].rtab[12], moduli->fft62_mod[i].p);
-        cu_fft62_fft(rop->data[i], op->data[i], op->size, lgN, get_mod_num(cu_zz_moduli, i));
-      } else {
-        fft62_fft(rop->data[i], points, op->data[i], op->size, lgN,
+      fft62_fft(rop->data[i], points, op->data[i], op->size, lgN,
 		&moduli->fft62_mod[i], threads2);
-      }
       
     }
 
@@ -450,8 +534,6 @@ void zz_mpnfft_poly_ifft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
   unsigned lgN = rop->params->lgN;
   size_t points = rop->params->points;
 
-  assert(op->size == points);
-
   unsigned teams = zz_gcd(threads, num_primes);
   unsigned threads2 = threads / teams;
   // printf("ifft points: %lu\n", points);
@@ -462,20 +544,8 @@ void zz_mpnfft_poly_ifft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
       fft62_mod_t* mod = &moduli->fft62_mod[i];
       uint64_t* src = op->data[i];
       uint64_t* dst = rop->data[i];
-      if (lgN >= GPU_MIN_THRESHOLD && lgN <= GPU_MAX_THRESHOLD) {
-        cu_fft62_ifft(dst, src, lgN, get_mod_num(cu_zz_moduli, i));
-      } else {
-        fft62_ifft(dst, points, src, lgN, mod, threads2);
-      }
-      // printf("fft output %d: \n", i);
-      // for (int i = 0; i < (1 << lgN); ++i) {
-      //   // printf("%lu, ", dst[i] % mod->p);
-      //   printf("%lu, ", dst[i] % mod->p);
-      // }
-      // printf("\n");
-      // assert(2 == 3);
+      fft62_ifft(dst, points, src, lgN, mod, threads2);
 	{
-    // assert(2 == 3);
 	  // divide by 2^lgN
 	  uint64_t p = mod->p;
 	  uint64_t pinv = mod->pinv;

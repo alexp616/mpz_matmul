@@ -10,6 +10,7 @@
 #include "reduce.h"
 #include "zzmisc.h"
 #include "zzmem.h"
+#include <stdio.h>
 
 
 void zz_split_reduce(uint64_t** rp, size_t rn, int sign, int lgS,
@@ -43,24 +44,29 @@ void zz_split_reduce(uint64_t** rp, size_t rn, int sign, int lgS,
 
   // process {rp,rn} in chunks
 //#pragma omp for schedule(static)
-    for (ptrdiff_t i0 = 0; i0 < rn; i0 += size)
-      {
+    for (ptrdiff_t i0 = 0; i0 < rn; i0 += size) {
 	// this iteration handles outputs i0 <= i < i1
-	size_t i1 = MIN(i0 + size, rn);
+      size_t i1 = MIN(i0 + size, rn);
 
-	// split into integer coefficients
-	ptrdiff_t offset = (i0 / 64) * b;
-	if (un > offset)
-	  zz_split(temp, i1 - i0, up + offset, un - offset, b);
-	else
-	  mpn_zero(temp, (i1 - i0) * t);
+      // split into integer coefficients
+      ptrdiff_t offset = (i0 / 64) * b;
+      if (un > offset)
+        zz_split(temp, i1 - i0, up + offset, un - offset, b);
+      else
+        mpn_zero(temp, (i1 - i0) * t);
 
 	// reduce modulo each prime
-	for (unsigned j = 0; j < num_primes; j++)
-	  zz_reduce(rp[j] + i0, temp, i1 - i0, t, c[j], cpinv[j],
+	    for (unsigned j = 0; j < num_primes; j++) {
+	      zz_reduce(rp[j] + i0, temp, i1 - i0, t, c[j], cpinv[j],
 		    moduli->p[j], moduli->pinvb[j]);
       }
+    }
 
     zz_free(temp, t * size * sizeof(mp_limb_t));
   }
+
+  // for (int i = 0; i < rn; ++i) {
+  //   printf("%lu, ", rp[0][i]);
+  // }
+  // printf("\n");
 }

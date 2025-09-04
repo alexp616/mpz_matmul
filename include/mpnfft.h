@@ -35,6 +35,10 @@ void zz_mpnfft_params_init(zz_mpnfft_params_t* params, size_t bits,
 			   size_t terms, unsigned num_primes,
 			   zz_moduli_t* moduli);
 
+void zz_mpnfft_params_init2(zz_mpnfft_params_t* params, size_t bits,
+			   size_t terms, unsigned num_primes,
+			   zz_moduli_t* moduli);
+
 static inline void zz_mpnfft_params_clear(zz_mpnfft_params_t* params) { ; }
 
 
@@ -91,6 +95,9 @@ void zz_mpnfft_poly_dealloc(zz_mpnfft_poly_t P);
 // Writes as many coefficients as necessary (always an admissible size or
 // zero), up to a maximum of "points".
 void zz_mpnfft_mpn_to_poly(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
+			   int sign, int lgS, int scale, int threads);
+
+void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
 			   int sign, int lgS, int scale, int threads);
 
 // Writes f(2^r) mod B^rn to {rp,rn}
