@@ -7,7 +7,7 @@
 #include "hwmem.h"
 #include "hwmpz.h"
 
-#define HW_ZZ_PRIMES            1
+#define HW_ZZ_PRIMES            2
 
 int hw_disable_fft;
 int mpzfft_threads = 1; // setting this to a value other than 1 is typically not all that helpful (better to parallelize at a higher level)
@@ -22,8 +22,8 @@ static inline void hw_mpzfft_setup ()
 {
     if ( hw_disable_fft || mpzfft_initialized ) return;
     zz_moduli_init (&zz_moduli, ZZ_MAX_PRIMES);
-    // cu_zz_moduli = create_cu_zz_moduli_t();
-    // cu_zz_moduli_init (cu_zz_moduli, ZZ_MAX_PRIMES);
+    cu_zz_moduli = create_cu_zz_moduli_t();
+    cu_zz_moduli_init (cu_zz_moduli, ZZ_MAX_PRIMES);
 #if HW_MEM_TRACKING
     extern unsigned long zz_overhead;
     zz_overhead = zz_mem_peak;
@@ -35,7 +35,7 @@ static inline void hw_mpzfft_clear ()
 {
     if ( hw_disable_fft || ! mpzfft_initialized ) return;
     zz_moduli_clear (&zz_moduli);
-    // cu_zz_moduli_clear (cu_zz_moduli);
+    cu_zz_moduli_clear (cu_zz_moduli);
     mpzfft_initialized = 0;
 }
 
@@ -116,12 +116,61 @@ mpz_t* mpz_rmatrix_mult_fft2(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
     assert ( mpzfft_initialized );
     
     mpzfft_params_init2 (&params, mpz_rmatrix_product_max_bits (A, r, B, d), d, HW_ZZ_PRIMES, &zz_moduli);
-    // uint64_t* Aptr = hw_malloc(r*d*params.num_primes*sizeof(uint64_t)*params.N);
-    // transform input matrices
+
+    // In this implementation, we effectively have a triple pointer (but everything is actually contiguous in 
+    // implementation). First pointer (Adata) gives the location of the i-th fft matrix for i in 1 ... num_primes.
+    // Second pointer (Adata[i][j]) gives the index of the fft representation of A[i][j] (there isn't actually a 
+    // j in the implementation, the fft representations are just interpreted as contiguous blocks of length N). 
+    // Adata[i][j][k] gives the inner fft index. So for the FFT, we want to do:
+    // for (i in 1...num_primes)
+    //   for (j = 0; j < r * d; j += N)
+    //      fft(Adata[i][j ... j + N - 1])
+    // 
+    // Everything is continuous to make everything easily accessible to a GPU kernel through index arithmetic
+    size_t Asz_0 = r * d * params.N;
+    size_t Bsz_0 = d * d * params.N;
+
+    uint64_t* Aptr = hw_malloc(Asz_0 * params.num_primes * sizeof(uint64_t));
+    uint64_t* Bptr = hw_malloc(Bsz_0 * params.num_primes * sizeof(uint64_t));
+
+    uint64_t* Adata[HW_ZZ_PRIMES];
+    for (int i = 0; i < HW_ZZ_PRIMES; ++i) { Adata[i] = &Aptr[i * Asz_0]; }
+    uint64_t* Bdata[HW_ZZ_PRIMES];
+    for (int i = 0; i < HW_ZZ_PRIMES; ++i) { Bdata[i] = &Bptr[i * Bsz_0]; }
+
+    for ( int i = 0 ; i < r*d; i++) { mpzfft_fft2(Adata, &params, A[i], mpzfft_threads, Asz_0); }
+    for ( int i = 0 ; i < d*d; i++) { mpzfft_fft2(Bdata, &params, B[i], mpzfft_threads, Bsz_0); }
+    
+    assert (1 == 2);
+
+    // // multiply matrices of Fourier coefficients
+    // mpzfft_matrix_mul(AT, AT, BT, r, d, d, mpzfft_threads);
+
+    // // inverse transform results and cleanup
+    // for ( int i = 0 ; i < d*d ; i++) { mpzfft_clear (BT[i]); }
+    // for ( int i = 0 ; i < r*d ; i++) { mpzfft_ifft (C[i], AT[i], mpzfft_threads); mpzfft_clear (AT[i]); }
+
+    // hw_free (AT, r*d*sizeof(mpzfft_t));
+    // hw_free (BT, d*d*sizeof(mpzfft_t));
+    hw_free(Aptr, Asz_0 * params.num_primes * sizeof(uint64_t));
+    hw_free(Bptr, Asz_0 * params.num_primes * sizeof(uint64_t));
+
+    mpzfft_params_clear (&params);
+    return C;
+}
+
+mpz_t* mpz_rmatrix_mult_fft3(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w)
+{
+    mpzfft_params_t params;
+    mpzfft_t *AT, *BT;
+    assert ( mpzfft_initialized );
+    
+    mpzfft_params_init3 (&params, mpz_rmatrix_product_max_bits (A, r, B, d), d, HW_ZZ_PRIMES, &zz_moduli);
+
     AT = hw_malloc (r*d*sizeof(mpzfft_t));
-    for ( int i = 0 ; i < r*d; i++) { mpzfft_init(AT[i], &params);  mpzfft_fft2 (AT[i], A[i], mpzfft_threads); }
+    for ( int i = 0 ; i < r*d; i++) { mpzfft_init(AT[i], &params);  mpzfft_fft3 (AT[i], A[i], mpzfft_threads); }
     BT = hw_malloc (d*d*sizeof(mpzfft_t));
-    for ( int i = 0 ; i < d*d; i++) { mpzfft_init(BT[i], &params);  mpzfft_fft2 (BT[i], B[i], mpzfft_threads); }
+    for ( int i = 0 ; i < d*d; i++) { mpzfft_init(BT[i], &params);  mpzfft_fft3 (BT[i], B[i], mpzfft_threads); }
 
     // multiply matrices of Fourier coefficients
     mpzfft_matrix_mul(AT, AT, BT, r, d, d, mpzfft_threads);

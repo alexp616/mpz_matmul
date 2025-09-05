@@ -39,6 +39,10 @@ void zz_mpnfft_params_init2(zz_mpnfft_params_t* params, size_t bits,
 			   size_t terms, unsigned num_primes,
 			   zz_moduli_t* moduli);
 
+void zz_mpnfft_params_init3(zz_mpnfft_params_t* params, size_t bits,
+			   size_t terms, unsigned num_primes,
+			   zz_moduli_t* moduli);
+
 static inline void zz_mpnfft_params_clear(zz_mpnfft_params_t* params) { ; }
 
 
@@ -97,7 +101,10 @@ void zz_mpnfft_poly_dealloc(zz_mpnfft_poly_t P);
 void zz_mpnfft_mpn_to_poly(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
 			   int sign, int lgS, int scale, int threads);
 
-void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
+void zz_mpnfft_mpn_to_poly2(uint64_t** dest, zz_mpnfft_params_t* params, mp_limb_t* up, size_t un,
+			   int sign, int lgS, int scale, int threads);
+
+void zz_mpnfft_mpn_to_poly3(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
 			   int sign, int lgS, int scale, int threads);
 
 // Writes f(2^r) mod B^rn to {rp,rn}
@@ -132,6 +139,8 @@ void free_if_gpu(unsigned lgN);
 // rop may alias op
 void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 			int threads);
+
+void zz_mpnfft_poly_fft2(uint64_t** data, zz_mpnfft_params_t* params, int datasz);
 
 // computes IFFT of op, writes result to rop (zero or "points" coefficients)
 // rop may alias op

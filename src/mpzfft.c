@@ -22,7 +22,15 @@ void mpzfft_fft(mpzfft_t rop, mpz_t op, int threads)
     }
 }
 
-void mpzfft_fft2(mpzfft_t rop, mpz_t op, int threads)
+void mpzfft_fft2(uint64_t** dest, mpzfft_params_t* params, mpz_t op, int threads, int destsz)
+{
+  int sign = mpz_sgn(op);
+
+    zz_mpnfft_mpn_to_poly2(dest, params, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
+    zz_mpnfft_poly_fft2(dest, params, destsz);
+}
+
+void mpzfft_fft3(mpzfft_t rop, mpz_t op, int threads)
 {
   int sign = mpz_sgn(op);
 
@@ -32,11 +40,10 @@ void mpzfft_fft2(mpzfft_t rop, mpz_t op, int threads)
     }
   else
     {
-      zz_mpnfft_mpn_to_poly2(rop, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
+      zz_mpnfft_mpn_to_poly3(rop, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
       zz_mpnfft_poly_fft(rop, rop, threads);
     }
 }
-
 
 void mpzfft_ifft(mpz_t rop, mpzfft_t op, int threads)
 {

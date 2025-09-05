@@ -58,6 +58,8 @@ void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft6
 */
 void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod);
 
+void cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz);
+
 // C-friendly struct constructor
 cu_zz_moduli_t* create_cu_zz_moduli_t();
 

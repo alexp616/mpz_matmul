@@ -1,5 +1,6 @@
 #include <GPUNTT-1.0/ntt_ct.cuh>
 #include <GPUNTT-1.0/nttparameters.cuh>
+// #include <GPUNTT-1.0/modular_arith.cuh>
 #include <cufftwrapper.cuh>
 #include <assert.h>
 #include "mod62.h"
@@ -107,7 +108,6 @@ void cu_fft62_mod_clear(cu_fft62_mod_t* mod) {
     return;
 }
 
-
 void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft62_mod_t* mod) {
     assert(lgN <= GPU_MAX_THRESHOLD && lgN >= GPU_MIN_THRESHOLD);
 
@@ -176,6 +176,32 @@ void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod
         cudaFree(d_arr1);
     }
     cuda_check();
+
+    return;
+}
+
+void cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz) {
+    assert(cu_mpzfft_initialized);
+
+    uint64_t* d_data;
+
+    cudaMalloc(&d_data, datasz * num_primes * sizeof(uint64_t));
+    cudaMemcpy(d_data, data, datasz * num_primes * sizeof(uint64_t), cudaMemcpyHostToDevice);
+
+    uint64_t* ptr = d_data;
+    int modIdx = lgN - GPU_MIN_THRESHOLD;
+    unsigned N = 1 << lgN;
+    int batch_size = datasz / N;
+
+    for (int i = 0; i < num_primes; ++i) {
+        cu_fft62_mod_t* fft_data = mod->fft62_mod[i];
+        gpuntt::nttct_configuration cfg = fft_data->cfg[modIdx];
+        // std::cout << "cfg.n_power: " << cfg.n_power << std::endl;
+        gpuntt::GPU_CT_NTT_Inplace_Batched(ptr, cfg, batch_size);
+        ptr += batch_size * N;
+    }
+
+    cudaMemcpy(data, d_data, datasz * num_primes * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
     return;
 }

@@ -182,6 +182,8 @@ static inline mpz_t *mpz_matrix_mult_fft (mpz_t *C, mpz_t *A, mpz_t *B, int d, m
 
 mpz_t *mpz_rmatrix_mult_fft2 (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w);
 
+mpz_t *mpz_rmatrix_mult_fft3 (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w);
+
 // computes C=AB mod m, where A and C are r-by-d matrices and B, is a d-by-d matrices, using naive rd^2 alg, w is a work variable (helps to avoid reallocs during computation)
 // ALIASING NOT ALLOWED
 static inline void mpz_rmatrix_mult_mod_naive (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t m, mpz_t w)

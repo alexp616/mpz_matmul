@@ -30,6 +30,13 @@ void mpzfft_params_init2(mpzfft_params_t* params, size_t bits, unsigned terms,
   zz_mpnfft_params_init2(params, bits, terms, num_primes, moduli);
 }
 
+static inline
+void mpzfft_params_init3(mpzfft_params_t* params, size_t bits, unsigned terms,
+			unsigned num_primes, zz_moduli_t* moduli)
+{
+  zz_mpnfft_params_init3(params, bits, terms, num_primes, moduli);
+}
+
 // destroy params
 static inline void mpzfft_params_clear(mpzfft_params_t* params)
 {
@@ -61,7 +68,9 @@ static inline void mpzfft_dealloc(mpzfft_t op)
 // convert op to FFT representation in rop
 void mpzfft_fft(mpzfft_t rop, mpz_t op, int threads);
 
-void mpzfft_fft2(mpzfft_t rop, mpz_t op, int threads);
+void mpzfft_fft2(uint64_t** dest, mpzfft_params_t* params, mpz_t op, int threads, int destsz);
+
+void mpzfft_fft3(mpzfft_t rop, mpz_t op, int threads);
 
 // convert op out of FFT representation, write result to rop
 // NOTE: the contents of op are DESTROYED, and op is set to zero

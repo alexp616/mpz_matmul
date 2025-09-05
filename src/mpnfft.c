@@ -141,6 +141,52 @@ void zz_mpnfft_params_init2(zz_mpnfft_params_t* params, size_t bits,
     }
 }
 
+void zz_mpnfft_params_init3(zz_mpnfft_params_t* params, size_t bits,
+			   size_t terms, unsigned num_primes,
+			   zz_moduli_t* moduli)
+{
+  params->moduli = moduli;
+  params->num_primes = num_primes;
+  params->terms = terms;
+
+  double bound = 0.4999;
+  for (unsigned i = 0; i < num_primes; i++)
+    bound *= (double) moduli->p[i];
+  double bound2 = bound / terms;
+
+  // initial (over)estimate of r
+  unsigned r = 62 * num_primes / 2;
+
+  // this loop generates a decreasing sequence of overestimates of r
+  // until we hit one that works
+  while (1)
+    {
+      size_t points = (bits - 1) / r + 2;    // ceil(bits / r + 1)
+
+      // find largest r' such that 2^(2r') < bound2 / ceil(points / 2)
+      double thing = bound2 / ((points + 1) / 2);
+      unsigned rr;
+      frexp(thing, (int*) &rr);
+      rr = (rr - 1) / 2;
+
+      // if r' matches r, we're done
+      if (rr == r)
+	{
+	  // done
+	  unsigned lgN = fft62_log2(points);
+    
+	  params->r = r;
+	  params->lgN = lgN; 
+	  params->N = (size_t) 1 << lgN;
+    params->points = params->N;
+    
+	  return;
+	}
+      // otherwise decrease r and try again
+      r = rr;
+    }
+}
+
 
 void zz_mpnfft_poly_init(zz_mpnfft_poly_t P, zz_mpnfft_params_t* params)
 {
@@ -208,18 +254,45 @@ void zz_mpnfft_mpn_to_poly(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
   zz_split_reduce(P->data, size, sign, lgS - (scale ? lgN : 0),
 		  moduli, num_primes, up, un, r, threads);
 
-  size_t n = 1 << lgN;
-  for (size_t pn = 0; pn < num_primes; ++pn) {
-    // for (size_t i = size; i < n; ++i) {
-    //   P->data[pn][i] = 0;
-    // }
-    for (size_t i = 0; i < n; ++i) {
-      printf("%lx, ", P->data[pn][i]);
-    } printf("\n\n");
-  }
+  // size_t n = 1 << lgN;
+  // for (size_t pn = 0; pn < num_primes; ++pn) {
+  //   for (size_t i = 0; i < size; ++i) {
+  //     printf("%lx, ", P->data[pn][i]);
+  //   } printf("\n\n");
+  // }
 }
 
-void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
+void zz_mpnfft_mpn_to_poly2(uint64_t** dest, zz_mpnfft_params_t* params, mp_limb_t* up, size_t un,
+			   int sign, int lgS, int scale, int threads)
+{
+  unsigned lgN = params->lgN;
+  zz_moduli_t* moduli = params->moduli;
+  unsigned num_primes = params->num_primes;
+  size_t points = params->points;
+  unsigned r = params->r;
+
+  // estimate number of coefficients needed
+  size_t size = (64 * un + r - 1) / r;
+  if (size > points)
+    size = points;
+  size = fft62_next_size(size, params->lgN);
+  
+  zz_split_reduce(dest, size, sign, lgS - (scale ? lgN : 0),
+		  moduli, num_primes, up, un, r, threads);
+  
+  size_t n = 1 << lgN;
+  for (size_t pn = 0; pn < num_primes; ++pn) {
+    for (size_t i = size; i < n; ++i) {
+      dest[pn][i] = 0;
+    }
+    // for (size_t i = 0; i < n; ++i) {
+    //   printf("%lx, ", dest[pn][i]);
+    // } printf("\n\n");
+  }
+
+}
+
+void zz_mpnfft_mpn_to_poly3(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
 			   int sign, int lgS, int scale, int threads)
 {
   if (sign == 0 || un == 0)
@@ -228,7 +301,7 @@ void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
       return;
     }
   zz_mpnfft_poly_alloc(P);
-  
+
   unsigned lgN = P->params->lgN;
   zz_moduli_t* moduli = P->params->moduli;
   unsigned num_primes = P->params->num_primes;
@@ -236,25 +309,28 @@ void zz_mpnfft_mpn_to_poly2(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
   unsigned r = P->params->r;
 
   // estimate number of coefficients needed
-  size_t size = (64 * un + r - 1) / r;
-  if (size > points)
-    size = points;
-  size = fft62_next_size(size, P->params->lgN);
+  // size_t size = (64 * un + r - 1) / r;
+  // if (size > points)
+  //   size = points;
+  // size = fft62_next_size(size, P->params->lgN);
+
+  size_t size = points;
   P->size = size;
+  // printf("points: %lu\n", points);
   
   zz_split_reduce(P->data, size, sign, lgS - (scale ? lgN : 0),
 		  moduli, num_primes, up, un, r, threads);
-  
-  size_t n = 1 << lgN;
-  for (size_t pn = 0; pn < num_primes; ++pn) {
-    for (size_t i = size; i < n; ++i) {
-      P->data[pn][i] = 0;
-    }
-    for (size_t i = 0; i < n; ++i) {
-      printf("%lx, ", P->data[pn][i]);
-    } printf("\n\n");
-  }
 
+  // size_t n = 1 << lgN;
+
+  // for (size_t pn = 0; pn < num_primes; ++pn) {
+  //   // for (size_t i = size; i < n; ++i) {
+  //   //   P->data[pn][i] = 1;
+  //   // }
+  //   // for (size_t i = 0; i < n; ++i) {
+  //   //   printf("%lx, ", P->data[pn][i]);
+  //   // } printf("\n\n");
+  // }
 }
 
 void zz_mpnfft_poly_to_mpn(mp_limb_t* rp, size_t rn, zz_mpnfft_poly_t P,
@@ -468,6 +544,7 @@ typedef struct cu_fft62_mod_t cu_fft62_mod_t;
 cu_fft62_mod_t* get_mod_num(cu_zz_moduli_t* mod, int i);
 extern void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft62_mod_t* mod);
 extern void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod);
+extern void cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz);
 extern void gpu_alloc_mem(size_t n);
 extern void gpu_free_mem();
 
@@ -511,8 +588,36 @@ void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 		&moduli->fft62_mod[i], threads2);
       
     }
+    printf("after fft, n: %lu\n", rop->params->N);
+  for (unsigned i = 0; i < num_primes; ++i) {
+    for (size_t j = 0; j < 10; ++j) {
+      printf("%lx, ", rop->data[i][j] % rop->params->moduli->p[i]);
+    } printf("\n\n");
+  }
 
   rop->size = points;
+}
+
+void zz_mpnfft_poly_fft2(uint64_t** data, zz_mpnfft_params_t* params, int datasz)
+{
+  int num_primes = params->num_primes;
+  size_t n = params->N;
+  unsigned lgN = params->lgN;
+//   zz_moduli_t* moduli = params->moduli;
+// // #pragma omp parallel for num_threads(teams) schedule(sta  tic)
+//   for (unsigned i = 0; i < num_primes; i++)
+//     {
+//       fft62_fft(data[i], n, data[i], n, lgN,
+// 		&moduli->fft62_mod[i], 1);
+      
+//     }
+  cu_fft62_fft_batch(*data, num_primes, lgN, cu_zz_moduli, datasz);
+  printf("after fft, n: %lu\n", n);
+  for (unsigned i = 0; i < num_primes; ++i) {
+    for (size_t j = 0; j < 10; ++j) {
+      printf("%lx, ", data[i][j]);
+    } printf("\n\n");
+  }
 }
 
 
@@ -684,7 +789,13 @@ static void chunk_addmul(uint64_t* dest, uint64_t* src1, uint64_t* src2,
     }
 }
 
+void zz_mpnfft_poly_matrix_mul2(zz_mpnfft_poly_t* rop,
+			       zz_mpnfft_poly_t* op1,
+			       zz_mpnfft_poly_t* op2,
+			       unsigned dim1, unsigned dim2, unsigned dim3,
+			       int threads) {
 
+}
 
 void zz_mpnfft_poly_matrix_mul(zz_mpnfft_poly_t* rop,
 			       zz_mpnfft_poly_t* op1,
