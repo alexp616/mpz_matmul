@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include "mpzfft.h"
+#include <stdio.h>
 
 
 void mpzfft_fft(mpzfft_t rop, mpz_t op, int threads)
@@ -27,7 +28,6 @@ void mpzfft_fft2(uint64_t** dest, mpzfft_params_t* params, mpz_t op, int threads
   int sign = mpz_sgn(op);
 
     zz_mpnfft_mpn_to_poly2(dest, params, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
-    zz_mpnfft_poly_fft2(dest, params, destsz);
 }
 
 void mpzfft_fft3(mpzfft_t rop, mpz_t op, int threads)
@@ -52,9 +52,13 @@ void mpzfft_ifft(mpz_t rop, mpzfft_t op, int threads)
       mpz_set_ui(rop, 0);
       return;
     }
-
+  
   zz_mpnfft_poly_ifft(op, op, 1, threads);
-
+  // for (int i = 0; i < op->params->num_primes; ++i) {
+  //   for (int j = 0; j < 20; ++j) {
+  //     printf("%lx, ", op->data[i][j] % op->params->moduli->p[i]);
+  //   } printf("\n\n");
+  // }
   // estimate of output size
   size_t n =
     ((op->size - 1) * op->params->r + 62 * op->params->num_primes + 2) / 64 + 1;
@@ -75,7 +79,6 @@ void mpzfft_ifft(mpz_t rop, mpzfft_t op, int threads)
     n--;
   rop->_mp_size = neg ? -n : n;
 }
-
 
 
 void mpzfft_mod_init(mpzfft_mod_t* mod, size_t bits, mpz_t d,

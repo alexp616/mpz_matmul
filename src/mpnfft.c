@@ -340,6 +340,25 @@ void zz_mpnfft_poly_to_mpn(mp_limb_t* rp, size_t rn, zz_mpnfft_poly_t P,
 		   P->params->num_primes, threads);
 }
 
+void zz_mpnfft_poly_to_mpn2(mpz_t rop, size_t rn, uint64_t** data, zz_mpnfft_params_t* params,
+			   int threads) 
+{
+  zz_crt_recompose(rop->_mp_d, rn, params->r, data, params->N, params->moduli,
+		   params->num_primes, threads);
+
+  int neg = 0;
+  if (rop->_mp_d[rn - 1] >> 63)
+    {
+      // todo: parallelise
+      mpn_neg(rop->_mp_d, rop->_mp_d, rn);
+      neg = 1;
+    }
+  // normalise
+  while (rn > 0 && rop->_mp_d[rn - 1] == 0)
+    rn--;
+  rop->_mp_size = neg ? -rn : rn;
+}
+
 
 void zz_mpnfft_poly_set(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op, int threads)
 {
@@ -545,6 +564,7 @@ cu_fft62_mod_t* get_mod_num(cu_zz_moduli_t* mod, int i);
 extern void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft62_mod_t* mod);
 extern void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod);
 extern void cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz);
+extern void cu_fft62_ifft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz);
 extern void gpu_alloc_mem(size_t n);
 extern void gpu_free_mem();
 
@@ -588,38 +608,19 @@ void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 		&moduli->fft62_mod[i], threads2);
       
     }
-    printf("after fft, n: %lu\n", rop->params->N);
-  for (unsigned i = 0; i < num_primes; ++i) {
-    for (size_t j = 0; j < 10; ++j) {
-      printf("%lx, ", rop->data[i][j] % rop->params->moduli->p[i]);
-    } printf("\n\n");
-  }
 
   rop->size = points;
 }
 
-void zz_mpnfft_poly_fft2(uint64_t** data, zz_mpnfft_params_t* params, int datasz)
+void zz_mpnfft_poly_fft2(uint64_t* data, zz_mpnfft_params_t* params, int datasz)
 {
   int num_primes = params->num_primes;
   size_t n = params->N;
   unsigned lgN = params->lgN;
-//   zz_moduli_t* moduli = params->moduli;
-// // #pragma omp parallel for num_threads(teams) schedule(sta  tic)
-//   for (unsigned i = 0; i < num_primes; i++)
-//     {
-//       fft62_fft(data[i], n, data[i], n, lgN,
-// 		&moduli->fft62_mod[i], 1);
-      
-//     }
-  cu_fft62_fft_batch(*data, num_primes, lgN, cu_zz_moduli, datasz);
-  printf("after fft, n: %lu\n", n);
-  for (unsigned i = 0; i < num_primes; ++i) {
-    for (size_t j = 0; j < 10; ++j) {
-      printf("%lx, ", data[i][j]);
-    } printf("\n\n");
-  }
-}
+  cu_fft62_fft_batch(data, num_primes, lgN, cu_zz_moduli, datasz);
 
+  return;
+}
 
 void zz_mpnfft_poly_ifft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 			 int scale, int threads)
@@ -665,6 +666,14 @@ void zz_mpnfft_poly_ifft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
   rop->size = points;
 }
 
+void zz_mpnfft_poly_ifft2(uint64_t* data, zz_mpnfft_params_t* params, int datasz) {
+  int num_primes = params->num_primes;
+  size_t n = params->N;
+  unsigned lgN = params->lgN;
+  cu_fft62_ifft_batch(data, num_primes, lgN, cu_zz_moduli, datasz);
+
+  return;
+}
 
 void zz_mpnfft_poly_mul(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op1,
 			zz_mpnfft_poly_t op2, int use_pinvb, int threads)
@@ -789,14 +798,6 @@ static void chunk_addmul(uint64_t* dest, uint64_t* src1, uint64_t* src2,
     }
 }
 
-void zz_mpnfft_poly_matrix_mul2(zz_mpnfft_poly_t* rop,
-			       zz_mpnfft_poly_t* op1,
-			       zz_mpnfft_poly_t* op2,
-			       unsigned dim1, unsigned dim2, unsigned dim3,
-			       int threads) {
-
-}
-
 void zz_mpnfft_poly_matrix_mul(zz_mpnfft_poly_t* rop,
 			       zz_mpnfft_poly_t* op1,
 			       zz_mpnfft_poly_t* op2,
@@ -889,4 +890,10 @@ void zz_mpnfft_poly_matrix_mul(zz_mpnfft_poly_t* rop,
 
   for (unsigned i = 0; i < dim1 * dim3; i++)
     rop[i]->size = points;
+}
+
+extern void cu_mpzfft_matrix_mul(uint64_t* C, uint64_t* A, uint64_t* B, int d1, int d2, int d3, int num_primes, int n, cu_zz_moduli_t* mod);
+
+void zz_mpnfft_poly_matrix_mul2(uint64_t* C, uint64_t* A, uint64_t* B, int d1, int d2, int d3, int num_primes, int n) {
+  cu_mpzfft_matrix_mul(C, A, B, d1, d2, d3, num_primes, n, cu_zz_moduli);
 }

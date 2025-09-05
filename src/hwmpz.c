@@ -112,7 +112,6 @@ mpz_t *mpz_rmatrix_mult_fft (mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
 mpz_t* mpz_rmatrix_mult_fft2(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w)
 {
     mpzfft_params_t params;
-    mpzfft_t *AT, *BT;
     assert ( mpzfft_initialized );
     
     mpzfft_params_init2 (&params, mpz_rmatrix_product_max_bits (A, r, B, d), d, HW_ZZ_PRIMES, &zz_moduli);
@@ -134,28 +133,76 @@ mpz_t* mpz_rmatrix_mult_fft2(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
     uint64_t* Bptr = hw_malloc(Bsz_0 * params.num_primes * sizeof(uint64_t));
 
     uint64_t* Adata[HW_ZZ_PRIMES];
-    for (int i = 0; i < HW_ZZ_PRIMES; ++i) { Adata[i] = &Aptr[i * Asz_0]; }
     uint64_t* Bdata[HW_ZZ_PRIMES];
-    for (int i = 0; i < HW_ZZ_PRIMES; ++i) { Bdata[i] = &Bptr[i * Bsz_0]; }
 
-    for ( int i = 0 ; i < r*d; i++) { mpzfft_fft2(Adata, &params, A[i], mpzfft_threads, Asz_0); }
-    for ( int i = 0 ; i < d*d; i++) { mpzfft_fft2(Bdata, &params, B[i], mpzfft_threads, Bsz_0); }
+    for ( int i = 0 ; i < r*d; i++) {
+        size_t start = i * params.N;
+        for (int j = 0; j < HW_ZZ_PRIMES; ++j) {
+            Adata[j] = Aptr + start + j * Asz_0;
+        }
+        zz_mpnfft_mpn_to_poly2(Adata, &params, A[i]->_mp_d, mpz_size(A[i]), mpz_sgn(A[i]), 0, 0, 1);
+    }
+    for ( int i = 0 ; i < d*d; i++) {
+        size_t start = i * params.N;
+        for (int j = 0; j < HW_ZZ_PRIMES; ++j) {
+            Bdata[j] = Bptr + start + j * Bsz_0;
+        }
+        zz_mpnfft_mpn_to_poly2(Bdata, &params, B[i]->_mp_d, mpz_size(B[i]), mpz_sgn(B[i]), 0, 0, 1);
+    }
+
+    zz_mpnfft_poly_fft2(Aptr, &params, Asz_0);
+    zz_mpnfft_poly_fft2(Bptr, &params, Bsz_0);
+
+    // printf("after fft, n: %lu\n", params.N);
+    // for (unsigned i = 0; i < HW_ZZ_PRIMES; ++i) {
+    //     for (int k = 0; k < r * d; ++k) {
+    //         for (size_t j = 0; j < 20; ++j) {
+    //             printf("%lx, ", Adata[i][k * params.N + j]);
+    //         } printf("\n\n");
+    //     }
+    // } printf("\n\n\n");
+
+    mpzfft_matrix_mul2(Aptr, Aptr, Bptr, r, d, d, HW_ZZ_PRIMES, params.N);
+
+    for (int j = 0; j < HW_ZZ_PRIMES; ++j) {
+        Adata[j] = Aptr + j * Asz_0;
+    }
+    // printf("after matmul, n: %lu\n", params.N);
+    // for (unsigned i = 0; i < HW_ZZ_PRIMES; ++i) {
+    //     for (int k = 0; k < r * d; ++k) {
+    //         for (size_t j = 0; j < 20; ++j) {
+    //             printf("%lx, ", Adata[i][k * params.N + j]);
+    //         } printf("\n\n");
+    //     }
+    // } printf("\n\n\n");
+
+    hw_free(Bptr, Bsz_0 * params.num_primes * sizeof(uint64_t));
     
-    assert (1 == 2);
+    zz_mpnfft_poly_ifft2(Aptr, &params, Asz_0);
 
-    // // multiply matrices of Fourier coefficients
-    // mpzfft_matrix_mul(AT, AT, BT, r, d, d, mpzfft_threads);
+    // printf("after ifft, n: %lu\n", params.N);
+    // for (int k = 0; k < r * d; ++k) {
+    //     for (unsigned i = 0; i < HW_ZZ_PRIMES; ++i) {
+    //         for (size_t j = 0; j < 20; ++j) {
+    //             printf("%lx, ", Adata[i][k * params.N + j]);
+    //         } printf("\n\n");
+    //     }
+    // } printf("\n\n\n");
 
-    // // inverse transform results and cleanup
-    // for ( int i = 0 ; i < d*d ; i++) { mpzfft_clear (BT[i]); }
-    // for ( int i = 0 ; i < r*d ; i++) { mpzfft_ifft (C[i], AT[i], mpzfft_threads); mpzfft_clear (AT[i]); }
-
-    // hw_free (AT, r*d*sizeof(mpzfft_t));
-    // hw_free (BT, d*d*sizeof(mpzfft_t));
+    for (int i = 0; i < r * d; ++i) {
+        size_t start = i * params.N;
+        for (int j = 0; j < HW_ZZ_PRIMES; ++j) {
+            Adata[j] = Aptr + start + j * Asz_0;
+        }
+        size_t x = ((params.N) * params.r + 62 * params.num_primes + 2) / 64 + 1;
+        mpz_realloc(C[i], x);
+        zz_mpnfft_poly_to_mpn2(C[i], x, Adata, &params, 1); 
+    }
+    
     hw_free(Aptr, Asz_0 * params.num_primes * sizeof(uint64_t));
-    hw_free(Bptr, Asz_0 * params.num_primes * sizeof(uint64_t));
 
     mpzfft_params_clear (&params);
+    // gmp_printf("C[0]: %Zd", C[0]);
     return C;
 }
 
@@ -172,16 +219,35 @@ mpz_t* mpz_rmatrix_mult_fft3(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
     BT = hw_malloc (d*d*sizeof(mpzfft_t));
     for ( int i = 0 ; i < d*d; i++) { mpzfft_init(BT[i], &params);  mpzfft_fft3 (BT[i], B[i], mpzfft_threads); }
 
+    // printf("after fft, n: %lu\n", params.N);
+    // for (unsigned i = 0; i < HW_ZZ_PRIMES; ++i) {
+    //     for (int k = 0; k < r * d; ++k) {
+    //         for (size_t j = 0; j < 20; ++j) {
+    //         printf("%lx, ", AT[k]->data[i][j] % params.moduli->p[i]);
+    //         } printf("\n\n");
+    //     }
+    // } printf("\n\n\n");
+
     // multiply matrices of Fourier coefficients
     mpzfft_matrix_mul(AT, AT, BT, r, d, d, mpzfft_threads);
+    // printf("after matmul, n: %lu\n", params.N);
+    // for (unsigned i = 0; i < HW_ZZ_PRIMES; ++i) {
+    //     for (int k = 0; k < r * d; ++k) {
+    //         for (size_t j = 0; j < 20; ++j) {
+    //         printf("%lx, ", AT[k]->data[i][j] % params.moduli->p[i]);
+    //         } printf("\n\n");
+    //     }
+    // } printf("\n\n\n");
 
     // inverse transform results and cleanup
     for ( int i = 0 ; i < d*d ; i++) { mpzfft_clear (BT[i]); }
+    // printf("after ifft, n: %lu\n", params.N);
     for ( int i = 0 ; i < r*d ; i++) { mpzfft_ifft (C[i], AT[i], mpzfft_threads); mpzfft_clear (AT[i]); }
 
     hw_free (AT, r*d*sizeof(mpzfft_t));
     hw_free (BT, d*d*sizeof(mpzfft_t));
 
     mpzfft_params_clear (&params);
+    // gmp_printf("C[0]: %Zd", C[0]);
     return C;
 }

@@ -137,7 +137,11 @@ void mpzfft_matrix_mul(mpzfft_t* rop, mpzfft_t* op1, mpzfft_t* op2,
   zz_mpnfft_poly_matrix_mul(rop, op1, op2, dim1, dim2, dim3, threads);
 }
 
-
+static inline
+void mpzfft_matrix_mul2(uint64_t* C, uint64_t* A, uint64_t* B, unsigned dim1, unsigned dim2, unsigned dim3, int num_primes, int n) 
+{
+  zz_mpnfft_poly_matrix_mul2(C, A, B, dim1, dim2, dim3, num_primes, n);
+}
 
 typedef zz_mpnfft_mod_t mpzfft_mod_t;
 

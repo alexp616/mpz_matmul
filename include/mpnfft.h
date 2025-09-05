@@ -111,6 +111,8 @@ void zz_mpnfft_mpn_to_poly3(zz_mpnfft_poly_t P, mp_limb_t* up, size_t un,
 void zz_mpnfft_poly_to_mpn(mp_limb_t* rp, size_t rn, zz_mpnfft_poly_t P,
 			   int threads);
 
+void zz_mpnfft_poly_to_mpn2(mpz_t rop, size_t rn, uint64_t** data, zz_mpnfft_params_t* params, int threads);
+
 // rop := op
 // (works for both coefficient and FFT representation)
 void zz_mpnfft_poly_set(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op, int threads);
@@ -140,13 +142,15 @@ void free_if_gpu(unsigned lgN);
 void zz_mpnfft_poly_fft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 			int threads);
 
-void zz_mpnfft_poly_fft2(uint64_t** data, zz_mpnfft_params_t* params, int datasz);
+void zz_mpnfft_poly_fft2(uint64_t* data, zz_mpnfft_params_t* params, int datasz);
 
 // computes IFFT of op, writes result to rop (zero or "points" coefficients)
 // rop may alias op
 // if scale == 1, result is multiplied by 1/N mod p
 void zz_mpnfft_poly_ifft(zz_mpnfft_poly_t rop, zz_mpnfft_poly_t op,
 			 int scale, int threads);
+
+void zz_mpnfft_poly_ifft2(uint64_t* data, zz_mpnfft_params_t* params, int datasz);
 
 // multiply fourier coefficients pointwise, rop := op1 * op2
 // all parameters may alias each other
@@ -168,5 +172,6 @@ void zz_mpnfft_poly_matrix_mul(zz_mpnfft_poly_t* rop,
 			       unsigned dim1, unsigned dim2, unsigned dim3,
 			       int threads);
 
+void zz_mpnfft_poly_matrix_mul2(uint64_t* C, uint64_t* A, uint64_t* B, int d1, int d2, int d3, int num_primes, int n);
 
 #endif
