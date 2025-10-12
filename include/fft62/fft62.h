@@ -23,12 +23,24 @@
 // some primes p = 1 mod 2^44:
 #define FFT62_PRIME1 ((uint64_t) 0x3fffc00000000001ULL)
 #define FFT62_PRIME2 ((uint64_t) 0x3ffdf00000000001ULL)
-#define FFT62_PRIME3 ((uint64_t) 0x3ffd900000000001ULL)
+#define FFT62_PRIME3 ((uint64_t) 0x3ffd900000000001ULL) // somehow breaks everything
 #define FFT62_PRIME4 ((uint64_t) 0x3ffd500000000001ULL)
 #define FFT62_PRIME5 ((uint64_t) 0x3ffc100000000001ULL)
 #define FFT62_PRIME6 ((uint64_t) 0x3ffbb00000000001ULL)
 #define FFT62_PRIME7 ((uint64_t) 0x3ffaf00000000001ULL)
 #define FFT62_PRIME8 ((uint64_t) 0x3ffac00000000001ULL)
+#define FFT62_PRIME9 ((uint64_t) 0x3ffa500000000001ULL)
+#define FFT62_PRIMEA ((uint64_t) 0x3ff8a00000000001ULL)
+#define FFT62_PRIMEB ((uint64_t) 0x3ff7600000000001ULL)
+#define FFT62_PRIMEC ((uint64_t) 0x3ff2500000000001ULL)
+#define FFT62_PRIMED ((uint64_t) 0x3fedd00000000001ULL)
+#define FFT62_PRIMEE ((uint64_t) 0x3fece00000000001ULL)
+#define FFT62_PRIMEF ((uint64_t) 0x3febc00000000001ULL)
+#define FFT62_PRIMEG ((uint64_t) 0x3fe8f00000000001ULL)
+#define FFT62_PRIMEH ((uint64_t) 0x3fe8800000000001ULL)
+#define FFT62_PRIMEI ((uint64_t) 0x3fe8600000000001ULL)
+#define FFT62_PRIMEJ ((uint64_t) 0x3fe7100000000001ULL)
+#define FFT62_PRIMEK ((uint64_t) 0x3fe6a00000000001ULL)
 
 
 

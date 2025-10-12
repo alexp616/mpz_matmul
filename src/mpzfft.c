@@ -41,6 +41,12 @@ void mpzfft_fft3(mpzfft_t rop, mpz_t op, int threads)
   else
     {
       zz_mpnfft_mpn_to_poly3(rop, op->_mp_d, mpz_size(op), sign, 0, 0, threads);
+      // for (int i = 0; i < rop->params->num_primes; ++i) {
+      //   for (int j = 0; j < rop->params->N; ++j) {
+      //     printf("%lx, ", rop->data[i][j] % rop->params->moduli->p[i]);
+      //   } printf("\n\n");
+      //   fflush(stdout);
+      // }
       zz_mpnfft_poly_fft(rop, rop, threads);
     }
 }

@@ -12,6 +12,7 @@
 
 // maximum number of FFT primes
 #define ZZ_MAX_PRIMES 8
+// #define ZZ_MAX_PRIMES 4
 
 
 // global table of usable FFT primes

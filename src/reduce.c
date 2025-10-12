@@ -21,7 +21,7 @@ void zz_reduce(uint64_t* rp, const mp_limb_t* up, size_t un, unsigned t,
 	  acc = (up[i] - acc) + ((acc > up[i]) ? p : 0);
 	}
 
-      *rp++ = mod62_mul_ypinv_lazy(acc, c, cpinv, p);
+      *rp++ = mod62_mul_ypinv_lazy(acc, c, cpinv, p) % p;
       up += t;
       un--;
     }

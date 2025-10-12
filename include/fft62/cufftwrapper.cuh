@@ -70,4 +70,6 @@ void cu_zz_moduli_init(cu_zz_moduli_t* moduli, int numPrimes);
 
 // destroys list of gpu mods
 void cu_zz_moduli_clear(cu_zz_moduli_t* moduli);
+
+// void cu_memcpy(uint64_t* host_ptr, uint64_t* dev_ptr, size_t bytes);
 }

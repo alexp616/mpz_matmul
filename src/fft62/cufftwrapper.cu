@@ -5,6 +5,7 @@
 #include <assert.h>
 #include "mod62.h"
 
+#include <iostream>
 
 #define THREADSPERBLOCK 512
 
@@ -102,7 +103,6 @@ void cu_fft62_mod_init(cu_fft62_mod_t* mod, uint64_t p) {
 void cu_fft62_mod_clear(cu_fft62_mod_t* mod) {
     cudaFree(mod->cfg[0].root_table);
     cudaFree(mod->inverse_cfg[0].root_table);
-    
     cuda_check();
 
     return;
@@ -112,7 +112,6 @@ void cu_fft62_fft(uint64_t* yp, uint64_t* xp, size_t size, unsigned lgN, cu_fft6
     assert(lgN <= GPU_MAX_THRESHOLD && lgN >= GPU_MIN_THRESHOLD);
 
     int n = 1 << lgN;
-
     uint64_t* d_arr1;
     if (cu_mem_alloced) {
         assert(n == d_arr_len);
@@ -182,7 +181,7 @@ void cu_fft62_ifft(uint64_t* yp, uint64_t* xp, unsigned lgN, cu_fft62_mod_t* mod
 
 uint64_t* cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz_moduli_t* mod, int datasz) {
     assert(cu_mpzfft_initialized);
-
+    assert(GPU_MIN_THRESHOLD <= lgN && lgN <= GPU_MAX_THRESHOLD);
     uint64_t* d_data;
 
     cudaMalloc(&d_data, datasz * num_primes * sizeof(uint64_t));
@@ -196,11 +195,10 @@ uint64_t* cu_fft62_fft_batch(uint64_t* data, int num_primes, unsigned lgN, cu_zz
     for (int i = 0; i < num_primes; ++i) {
         cu_fft62_mod_t* fft_data = mod->fft62_mod[i];
         gpuntt::nttct_configuration cfg = fft_data->cfg[modIdx];
-        // std::cout << "cfg.n_power: " << cfg.n_power << std::endl;
         gpuntt::GPU_CT_NTT_Inplace_Batched(ptr, cfg, batch_size);
-        ptr += batch_size * N;
+        ptr += datasz;
     }
-
+    cuda_check();
     return d_data;
 }
 
@@ -222,7 +220,7 @@ void cu_fft62_ifft_batch(uint64_t* host_ptr, uint64_t* d_data, int num_primes, u
 
     cudaMemcpy(host_ptr, d_data, datasz * num_primes * sizeof(uint64_t), cudaMemcpyDeviceToHost);
     cudaFree(d_data);
-
+    cuda_check();
     return;
 }
 
@@ -256,6 +254,7 @@ void cu_zz_moduli_clear(cu_zz_moduli_t* moduli) {
     }
     
     free(moduli);
+    cu_mpzfft_initialized = 0;
 
     return;
 }
@@ -265,15 +264,16 @@ __global__ void matmul_kernel(uint64_t* C, const uint64_t* B, uint64_t* aux, int
     int Bidx = blockIdx.y * n + threadIdx.x + blockIdx.x * blockDim.x;
     int Cidx = blockIdx.y * n + threadIdx.x + blockIdx.x * blockDim.x;
 
-    C[Cidx] = 0;
-
+    uint64_t res = 0;
     uint64_t temp;
     for (int i = 0; i < d2; ++i) {
         temp = OPERATOR_GPU_64::mult(aux[Aidx], B[Bidx], mod);
-        C[Cidx] = OPERATOR_GPU_64::add(C[Cidx], temp, mod);
+        res = OPERATOR_GPU_64::add(res, temp, mod);
         Aidx += n;
         Bidx += d3 * n;
     }
+
+    C[Cidx] = res;
 
     return;
 }
@@ -293,6 +293,7 @@ void cu_mpzfft_matrix_mul(uint64_t* d_C, uint64_t* d_A, uint64_t* d_B, int d1, i
 
     int totalThreads = n * d3;
     int threads = min(totalThreads, 512);
+    // printf("totalThreads: %d, threads: %d\n", totalThreads, threads);
 
     int griddim_x = n / threads;
     int griddim_y = d3;
@@ -315,8 +316,12 @@ void cu_mpzfft_matrix_mul(uint64_t* d_C, uint64_t* d_A, uint64_t* d_B, int d1, i
 
     cudaFree(d_B);
     cudaFree(aux_row);
-    // cudaFree(d_A); cudaFree(d_B); cudaFree(d_C);
     cuda_check();
     return;
 }
+
+// void cu_memcpy(void* host_ptr, void* dev_ptr, size_t bytes) {
+//     cudaMemcpy(host_ptr, dev_ptr, bytes, cudaMemcpyDeviceToHost);
+//     cudaDeviceSynchronize();
+// }
 }

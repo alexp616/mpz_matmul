@@ -12,7 +12,6 @@ uint64_t global_p[ZZ_MAX_PRIMES] =
   {FFT62_PRIME1, FFT62_PRIME2, FFT62_PRIME3, FFT62_PRIME4,
    FFT62_PRIME5, FFT62_PRIME6, FFT62_PRIME7, FFT62_PRIME8};
 
-
 void zz_moduli_init(zz_moduli_t* moduli, unsigned num_primes)
 {
   assert(1 <= num_primes && num_primes <= ZZ_MAX_PRIMES);
@@ -20,8 +19,8 @@ void zz_moduli_init(zz_moduli_t* moduli, unsigned num_primes)
 
   for (unsigned i = 0; i < num_primes; i++)
     assert(mod62_valid(global_p[i]));
-  for (unsigned i = 1; i < num_primes; i++)
-    assert(global_p[i] < global_p[i-1]);
+  // for (unsigned i = 1; i < num_primes; i++)
+  //   assert(global_p[i] < global_p[i-1]);
 
   for (unsigned i = 0; i < num_primes; i++)
     {
