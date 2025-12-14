@@ -1,6 +1,6 @@
-#include <GPUNTT-1.0/ntt_ct.cuh>
-#include <GPUNTT-1.0/nttparameters.cuh>
-#include <GPUNTT-1.0/modular_arith.cuh>
+#include <ntt_ct.cuh>
+#include <nttparameters.cuh>
+#include <modular_arith.cuh>
 #include <cufftwrapper.cuh>
 #include <assert.h>
 #include "mod62.h"

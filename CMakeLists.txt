@@ -6,11 +6,25 @@ SET(CUDA_SEPARABLE_COMPILATION ON)
 
 find_package(CUDAToolkit REQUIRED)
 
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 89)
+endif()
+
+include(FetchContent)
+set(GPUNTT_BUILD_EXAMPLES OFF CACHE BOOL "Disable GPU-NTT examples" FORCE)
+set(GPUNTT_BUILD_BENCHMARKS OFF CACHE BOOL "Disable GPU-NTT benchmarks" FORCE)
+FetchContent_Declare(
+    gpuntt
+    GIT_REPOSITORY https://github.com/alexp616/GPU-NTT.git
+    GIT_TAG c911051c184e78f1d680706a22cd4b271b240e6b
+)
+FetchContent_MakeAvailable(gpuntt)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -fPIC -fomit-frame-pointer -funroll-loops -m64 -pedantic -std=gnu11 -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fPIC -funroll-loops -m64 -Wall -std=gnu11 -march=native")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_89 -ccbin=${CMAKE_C_COMPILER}")
 
 include_directories(
@@ -18,8 +32,6 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include/fft62
     /usr/local/include
 )
-
-link_directories(/usr/local/lib)
 
 set(HWLPOLY_SRCS
     src/hwmem.c
@@ -58,8 +70,9 @@ add_library(rforest STATIC
 )
 
 target_link_libraries(rforest
-    /usr/local/lib/libntt-1.0.a
-    gmp
+    PRIVATE
+        ntt
+        gmp
 )
 
 set_target_properties(rforest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

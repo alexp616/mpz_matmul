@@ -122,7 +122,7 @@ mpz_t* mpz_rmatrix_mult_fft2(mpz_t *C, mpz_t *A, int r, mpz_t *B, int d, mpz_t w
 {
     mpzfft_params_t params;
     assert ( mpzfft_initialized );
-    double t = get_time();
+    // double t = get_time();
     
     mpzfft_params_init2 (&params, mpz_rmatrix_product_max_bits (A, r, B, d), d, HW_ZZ_PRIMES, &zz_moduli);
     // printf("fft size: %d\n", params.lgN);

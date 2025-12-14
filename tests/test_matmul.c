@@ -63,9 +63,9 @@ void matmul_test1() {
 // Test mpz_rmatrix_mult_fft == mpz_rmatrix_mult_fft3 (cpu version of gpu algorithm)
 void matmul_test2() {
     hw_mpz_setup();
-    for (int i = 0; i < 10; ++i) {
-    int r = rand() % 10 + 1;
-    int d = rand() % 10 + 1;
+    for (int i = 0; i < 100; ++i) {
+    int r = 16;
+    int d = 16;
 
     mpz_t* A = malloc(r * d * sizeof(mpz_t));
     mpz_t* B = malloc(d * d * sizeof(mpz_t));
