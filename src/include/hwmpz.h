@@ -7,11 +7,7 @@
 #include <gmp.h>
 #include "hwmem.h"
 
-/* ────────────────────────────────────────────────────────────────────────────
- * Per-step wall-clock profiling.  Compile with -DBENCH_PROFILE to enable.
- * The macros are intentionally side-effect-free when disabled so every call
- * site may keep its semicolon (e.g. `_BENCH_TICK(t0);`).
- * ──────────────────────────────────────────────────────────────────────────── */
+// Per-step wall-clock profiling.  Compile with -DBENCH_PROFILE to enable.
 #ifdef BENCH_PROFILE
 #include <time.h>
 static inline double _hwmpz_wall_sec(void) {
@@ -19,15 +15,14 @@ static inline double _hwmpz_wall_sec(void) {
     clock_gettime(CLOCK_MONOTONIC, &_ts);
     return _ts.tv_sec + _ts.tv_nsec * 1e-9;
 }
-#define _BENCH_TICK(v)        double _bench_t_##v = _hwmpz_wall_sec()
-#define _BENCH_TOCK(v)        (_hwmpz_wall_sec() - _bench_t_##v)
-#define _BENCH_PRINT(label, s) \
-    fprintf(stdout, "  [profile] %-30s %.6f s\n", (label), (double)(s))
+#define _BENCH_TICK(v)         double _bench_t_##v = _hwmpz_wall_sec()
+#define _BENCH_TOCK(v)         (_hwmpz_wall_sec() - _bench_t_##v)
+#define _BENCH_PRINT(label, s) fprintf(stdout, "  [profile] %-30s %.6f s\n", (label), (double)(s))
 #else
 #define _BENCH_TICK(v)         ((void)0)
 #define _BENCH_TOCK(v)         (0.0)
 #define _BENCH_PRINT(label, s) ((void)(s))
-#endif /* BENCH_PROFILE */
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,12 +34,39 @@ typedef struct cu_zz_moduli_t cu_zz_moduli_t;
 extern void cu_zz_moduli_init(cu_zz_moduli_t* moduli, int numPrimes);
 extern void cu_zz_moduli_clear(cu_zz_moduli_t* moduli);
 
-/* Pinned (page-locked) host memory — use for buffers passed to cudaMemcpy */
+// pinned memory helpers
 extern void* cu_malloc_pinned(size_t n);
 extern void  cu_free_pinned(void* p);
 
-/* Split H2D/NTT/INTT/D2H functions used by BENCH_PROFILE path in hwmpz.c */
-extern uint64_t* cu_h2d_batch_only(uint64_t* host_data, int num_primes, int datasz);
+// device memory helpers
+extern void* cu_device_malloc(size_t n);
+extern void  cu_device_free(void* p);
+extern void  cu_memcpy_d2h(void* dst, const void* src, size_t n);
+
+typedef struct cu_crt_constants_t cu_crt_constants_t;
+extern cu_crt_constants_t* cu_crt_constants_create(const void* moduli,
+                                                   unsigned num_primes);
+extern void cu_crt_constants_destroy(cu_crt_constants_t* ctx);
+extern void cu_zz_crt_batch(uint64_t* d_out,
+                            const uint64_t* d_data,
+                            size_t datasz,
+                            const cu_crt_constants_t* h_ctx);
+
+extern void cu_zz_recompose_chunked(uint64_t* d_out,
+                                    size_t rn,
+                                    unsigned r,
+                                    const uint64_t* d_crt,
+                                    size_t N,
+                                    unsigned num_primes);
+extern void cu_zz_recompose_batch(uint64_t* d_out_all,
+                                  size_t rn,
+                                  unsigned r,
+                                  const uint64_t* d_crt_all,
+                                  size_t N,
+                                  unsigned num_primes,
+                                  int entries);
+// used for benching
+extern uint64_t* cu_h2d(uint64_t* host_data, int num_primes, int datasz);
 extern void      cu_ntt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz);
 extern void      cu_intt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz);
 extern void      cu_d2h_batch_only(uint64_t* host_dst, uint64_t* d_data, int num_primes, int datasz);

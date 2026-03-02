@@ -66,6 +66,8 @@ set(LIB_SOURCES
 
 set(CUDA_SOURCES
     src/lib/cufftwrapper.cu
+    src/lib/cucrt.cu
+    src/lib/curecompose.cu
 )
 
 add_library(matmul STATIC ${LIB_SOURCES} ${CUDA_SOURCES})
@@ -136,8 +138,6 @@ target_link_libraries(bench_fft_direct PRIVATE
     ${GMP_LIBRARY}
     m
 )
-
-# ── CTest ──────────────────────────────────────────────────────────────────────
 
 enable_testing()
 

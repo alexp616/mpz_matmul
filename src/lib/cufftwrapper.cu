@@ -293,10 +293,22 @@ void cu_free_pinned(void* p) {
     cudaFreeHost(p);
 }
 
-/* ── Split H2D / NTT / INTT / D2H functions for per-step benchmarking ──────── */
+void* cu_device_malloc(size_t n) {
+    void* p;
+    cudaMalloc(&p, n);
+    cuda_check();
+    return p;
+}
 
-/* Alloc device buffer and copy host→device.  Returns device pointer.
- * cudaMemcpy HtoD is synchronous on the host so no extra sync is needed. */
+void cu_device_free(void* p) {
+    cudaFree(p);
+}
+
+void cu_memcpy_d2h(void* dst, const void* src, size_t n) {
+    cudaMemcpy(dst, src, n, cudaMemcpyDeviceToHost);
+    cuda_check();
+}
+
 uint64_t* cu_h2d_batch_only(uint64_t* host_data, int num_primes, int datasz) {
     uint64_t* d_data;
     cudaMalloc(&d_data, (size_t)datasz * num_primes * sizeof(uint64_t));
@@ -305,7 +317,6 @@ uint64_t* cu_h2d_batch_only(uint64_t* host_data, int num_primes, int datasz) {
     return d_data;
 }
 
-/* Forward NTT in-place on device.  cuda_check() synchronises before returning. */
 void cu_ntt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz) {
     assert(cu_mpzfft_initialized);
     assert(GPU_MIN_THRESHOLD <= (int)lgN && (int)lgN <= GPU_MAX_THRESHOLD);
@@ -320,7 +331,6 @@ void cu_ntt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datas
     cuda_check();
 }
 
-/* Inverse NTT in-place on device.  Does NOT copy back to host. */
 void cu_intt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz) {
     assert(cu_mpzfft_initialized);
     assert(GPU_MIN_THRESHOLD <= (int)lgN && (int)lgN <= GPU_MAX_THRESHOLD);
@@ -335,8 +345,6 @@ void cu_intt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int data
     cuda_check();
 }
 
-/* Copy device→host and free device pointer.
- * cudaMemcpy DtoH is synchronous so the copy is complete on return. */
 void cu_d2h_batch_only(uint64_t* host_dst, uint64_t* d_data, int num_primes, int datasz) {
     cudaMemcpy(host_dst, d_data, (size_t)datasz * num_primes * sizeof(uint64_t),
                cudaMemcpyDeviceToHost);

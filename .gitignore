@@ -5,8 +5,8 @@ cmake_install.cmake
 install_manifest.txt
 CTestTestfile.cmake
 
-.idea/         # JetBrains IDEs (CLion, etc)
-.vscode/       # VS Code configuration (optional, if you have user-specific settings)
+.idea/
+.vscode/
 
-.DS_Store      # macOS
-Thumbs.db      # Windows
+.DS_Store
+Thumbs.db

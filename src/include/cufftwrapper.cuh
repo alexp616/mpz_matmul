@@ -81,8 +81,13 @@ void cu_mpzfft_matrix_mul(uint64_t* C, uint64_t* A, uint64_t* B,
 void* cu_malloc_pinned(size_t n);
 void  cu_free_pinned(void* p);
 
+// Generic device memory helpers (thin wrappers around cudaMalloc/Free/Memcpy)
+void* cu_device_malloc(size_t n);
+void  cu_device_free(void* p);
+void  cu_memcpy_d2h(void* dst, const void* src, size_t n);
+
 // Split transfer+kernel functions used for per-step benchmarking
-uint64_t* cu_h2d_batch_only(uint64_t* host_data, int num_primes, int datasz);
+uint64_t* cu_h2d(uint64_t* host_data, int num_primes, int datasz);
 void      cu_ntt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz);
 void      cu_intt_batch_only(uint64_t* d_data, int num_primes, unsigned lgN, int datasz);
 void      cu_d2h_batch_only(uint64_t* host_dst, uint64_t* d_data, int num_primes, int datasz);

@@ -40,8 +40,6 @@ static const int  DIM_SIZES[] = { 2, 5 };
 #define N_BITS ((int)(sizeof(BIT_SIZES) / sizeof(BIT_SIZES[0])))
 #define N_DIMS ((int)(sizeof(DIM_SIZES) / sizeof(DIM_SIZES[0])))
 
-/* -- main ------------------------------------------------------------------- */
-
 int main(void)
 {
     hw_mem_init(0);
